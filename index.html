@@ -1,0 +1,373 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Analiz Masası</title>
+<style>
+:root{
+  --bg:#0b0f17;--panel:#121826;--panel2:#171f30;--line:#243049;--tx:#e6ecf5;--mut:#8a97b1;
+  --al:#2ecc8f;--gec:#ff6b6b;--bek:#7d8aa6;--acc:#5b8cff;--warn:#f5b84b;--sh:#ff8a5b;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--tx);font:15px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+header{position:sticky;top:0;z-index:5;background:rgba(11,15,23,.94);backdrop-filter:blur(8px);border-bottom:1px solid var(--line)}
+.wrap{max-width:1180px;margin:0 auto;padding:0 16px}
+.top{display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:10px 0}
+h1{font-size:19px;margin:0;font-weight:650}
+.sub{color:var(--mut);font-size:12.5px}
+.sp{flex:1}
+button{background:var(--acc);color:#fff;border:0;border-radius:9px;padding:8px 14px;font:inherit;font-weight:600;cursor:pointer}
+button:disabled{opacity:.55;cursor:wait}
+.live{display:inline-flex;align-items:center;gap:7px;font-size:13px;color:var(--al);font-weight:600}
+.live i{width:9px;height:9px;border-radius:50%;background:var(--al);animation:p 1.4s infinite}
+.live.off{color:var(--gec)}.live.off i{background:var(--gec);animation:none}
+@keyframes p{0%{box-shadow:0 0 0 0 rgba(46,204,143,.6)}100%{box-shadow:0 0 0 9px rgba(46,204,143,0)}}
+.ctrl{display:flex;gap:10px;flex-wrap:wrap;padding:0 0 10px}
+.ctrl label{font-size:12px;color:var(--mut);display:flex;flex-direction:column;gap:3px}
+.ctrl input,.ctrl select{background:var(--panel2);border:1px solid var(--line);color:var(--tx);border-radius:8px;padding:6px 9px;font:inherit;width:118px}
+.alert{display:none;margin:12px 0 0;padding:11px 15px;border-radius:11px;background:rgba(91,140,255,.14);border:1px solid var(--acc);font-weight:600}
+.banner{margin:14px 0;padding:13px 16px;border-radius:12px;background:var(--panel);border:1px solid var(--line);display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+.dot{width:10px;height:10px;border-radius:50%;background:var(--bek);flex:none}
+.sum{display:flex;gap:8px;margin-left:auto;flex-wrap:wrap}
+.chip{padding:4px 11px;border-radius:99px;font-size:13px;font-weight:600;background:var(--panel2);border:1px solid var(--line)}
+.chip.al{color:var(--al)}.chip.sh{color:var(--sh)}.chip.bek{color:var(--bek)}.chip.gec{color:var(--gec)}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(350px,1fr));gap:14px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:15px;display:flex;flex-direction:column;gap:11px}
+.card.LONG{border-color:rgba(46,204,143,.6)}.card.SHORT{border-color:rgba(255,138,91,.6)}
+.row{display:flex;align-items:center;gap:10px}
+.sym{font-weight:700;font-size:17px}
+.price{font-variant-numeric:tabular-nums;color:var(--tx)}
+.badge{margin-left:auto;padding:4px 12px;border-radius:8px;font-weight:700;font-size:13px;letter-spacing:.5px}
+.badge.LONG{background:rgba(46,204,143,.15);color:var(--al)}
+.badge.SHORT{background:rgba(255,138,91,.16);color:var(--sh)}
+.badge.GEC{background:rgba(255,107,107,.15);color:var(--gec)}
+.badge.BEKLE{background:rgba(125,138,166,.18);color:var(--bek)}
+.kv{display:grid;grid-template-columns:repeat(4,1fr);gap:7px}
+.kv div{background:var(--panel2);border-radius:9px;padding:6px 9px}
+.kv small{display:block;color:var(--mut);font-size:11px}
+.kv b{font-size:14px;font-variant-numeric:tabular-nums}
+.chat{display:flex;flex-direction:column;gap:6px}
+.msg{display:flex;gap:8px;align-items:flex-start}
+.av{width:25px;height:25px;border-radius:50%;background:var(--panel2);display:grid;place-items:center;font-size:12px;flex:none;border:1px solid var(--line)}
+.bub{background:var(--panel2);border-radius:4px 11px 11px 11px;padding:5px 10px;font-size:13.3px}
+.bub em{font-style:normal;color:var(--mut);font-size:11.5px;display:block}
+.bub.p{border-left:3px solid var(--al)}.bub.n{border-left:3px solid var(--gec)}
+.plan{background:var(--panel2);border-radius:10px;padding:10px 12px;font-size:13px;display:grid;grid-template-columns:1fr 1fr;gap:4px 14px}
+.plan span{color:var(--mut)}.plan b{font-variant-numeric:tabular-nums;float:right}
+.plan .full{grid-column:1/-1}
+.warn{color:var(--warn);font-weight:600}.bad{color:var(--gec);font-weight:600}.good{color:var(--al)}
+.mini{font-size:12.5px;color:var(--mut)}
+a.tv{color:var(--acc);font-size:12.5px;text-decoration:none}
+section{margin:26px 0}
+h2{font-size:16px;margin:0 0 10px}
+table{width:100%;border-collapse:collapse;font-size:14px;background:var(--panel);border-radius:12px;overflow:hidden}
+th,td{padding:8px 12px;text-align:right;border-bottom:1px solid var(--line)}
+th:first-child,td:first-child{text-align:left}
+th{color:var(--mut);font-weight:600;font-size:12.5px;background:var(--panel2)}
+tr.hl td{background:rgba(91,140,255,.09)}
+.note{background:rgba(245,184,75,.09);border:1px solid rgba(245,184,75,.35);color:#f0d9a6;border-radius:12px;padding:13px 15px;font-size:14px}
+.err{color:var(--gec);font-size:13px}
+footer{color:var(--mut);font-size:12.5px;padding:10px 0 40px}
+.tablewrap{overflow-x:auto}
+</style>
+</head>
+<body>
+<header><div class="wrap">
+  <div class="top">
+    <div><h1>Analiz Masası <span class="sub">· marjin (long/short)</span></h1><div class="sub" id="stamp">Yükleniyor…</div></div>
+    <div class="sp"></div>
+    <span class="live" id="live"><i></i><span id="livet">Canlı</span></span>
+    <button id="go">Şimdi yenile</button>
+  </div>
+  <div class="ctrl">
+    <label>Hesap (USDT)<input id="acct" type="number" min="1" value="1000"></label>
+    <label>İşlem başı risk %<input id="risk" type="number" min="0.1" max="10" step="0.1" value="1"></label>
+    <label>Kaldıraç<select id="lev"><option>2</option><option>3</option><option>5</option><option selected>10</option><option>20</option><option>25</option><option>50</option></select></label>
+  </div>
+</div></header>
+
+<main class="wrap">
+  <div class="alert" id="alert"></div>
+  <div class="banner"><span class="dot" id="rdot"></span><span id="regime">Piyasa rejimi hesaplanıyor…</span>
+    <div class="sum" id="sum"></div></div>
+  <div class="grid" id="grid"></div>
+
+  <section>
+    <h2>Geçmiş testte masa nasıl çıktı? (2024–2026, görülmemiş dönem, 10 coin, kâğıt üstü)</h2>
+    <div class="tablewrap"><table>
+      <tr><th>Yıllık getiri</th><th>Temel varsayım</th><th>Gerçekçi*</th><th>Gerçekçi + 20x</th><th>Kötü senaryo**</th></tr>
+      <tr class="hl"><td>SHORT</td><td>%11,4</td><td>%8,7</td><td>%6,6</td><td>%2,9</td></tr>
+      <tr><td>LONG</td><td>%5,4</td><td>%2,2</td><td>%1,9</td><td>−%2,7</td></tr>
+      <tr class="hl"><td>Long + short birlikte</td><td>%8,6</td><td>%5,7</td><td>%4,5</td><td>%0,3</td></tr>
+      <tr><td>Rastgele giriş (aynı stop/hedef)</td><td colspan="4">−%6,9</td></tr>
+      <tr><td>Al-tut (10 coin eşit)</td><td colspan="4">−%3,8 (en büyük düşüş %69)</td></tr>
+    </table></div>
+    <p class="mini" style="margin-top:8px">* Maliyet %0,10, fonlama, stop'ta %0,15 kötü kayma. ** Maliyet %0,15, fonlama iki katı, kayma %0,4.</p>
+    <p class="note" style="margin-top:12px">Okuma: Short tarafı daha sağlam, long zayıf. Kötü koşullarda kenar sıfıra yaklaşıyor. Long yalnızca hem coin hem BTC EMA200 üstündeyken sinyal verir, yani yükseliş dönemlerinde devreye girer; bu dönemlerin hepsinde kâr etmedi (2023 ve 2026'da long zarar yazdı). Fonlama oranı gerçek veriyle değil sabit varsayımla modellendi. Bu sayfa emir göndermez, yatırım tavsiyesi değildir.</p>
+  </section>
+
+  <section>
+    <h2>Senaryolar (yalnızca bilgilendirme)</h2>
+    <p class="mini" style="margin:0 0 10px">“RSI şu olursa, fiyat EMA200'ü kaybederse ne olur?” sorusunun cevabı. Kurallar masanın kendi kurallarıdır; fiyatın gerçekten ne yapacağını tahmin etmez.</p>
+    <div class="tablewrap"><table id="sctab"></table></div>
+    <p class="mini" style="margin-top:10px"><b>Kurallar:</b> LONG için fiyat EMA200 altındaysa, BTC EMA200 altındaysa, RSI 78 üstündeyse, 1 günde %15+ yükselmişse veya ATR %6 üstündeyse Şüpheci itiraz eder. SHORT için fiyat EMA200 üstündeyse, BTC EMA200 üstündeyse, RSI 22 altındaysa, 1 günde %15+ düşmüşse itiraz eder. Sinyal için ayrıca 20 mumluk zirve/dip kırılımı, hacim z ≥ 2 ve mumun ≥ 1,3 ATR olması gerekir. Haber net puanı −2 veya altıysa long'a, +2 veya üstüyse short'a itiraz eder.</p>
+  </section>
+
+  <footer>Veri: TradingView tarayıcı servisi (fiyat, RSI, EMA200; ~10 sn) + Gate.io 4s mumları (hacim ve kırılım; ~60 sn) + Cointelegraph, CoinDesk, Decrypt, Bitcoin Magazine, CryptoSlate başlıkları (rss2json üzerinden, ~5 dk). Haber puanı basit anahtar kelime sayımıdır (hack, dava, yasak, onay, ortaklık vb.), geçmişte test edilmedi ve yalnızca sinyale TERS ise veto eder; tek başına sinyal üretmez. Sinyaller kapanmış 4 saatlik mumdan hesaplanır, yani asıl karar en fazla 4 saatte bir değişir; sık yenileme canlı fiyatı ve stop/tasfiye mesafesini güncel tutar, sinyal kalitesini artırmaz. Haber ajanı henüz veri almıyor.</footer>
+</main>
+
+<script>
+const COINS=["BTC","ETH","SOL","BNB","XRP","ADA","DOGE","LINK","AVAX","LTC"];
+const AV={Tarayıcı:"🔎",Haber:"📰",Şüpheci:"🤨",Hakem:"⚖️"};
+const MMR=0.005;
+const $=id=>document.getElementById(id);
+const S={coins:{},tv:null,btcUp:true,prev:{},tvErr:"",candErr:[]};
+
+/* ---------- kullanıcı ayarları (tarayıcıda saklanır) ---------- */
+function loadSet(){try{const s=JSON.parse(localStorage.getItem("masa_set")||"{}");
+  if(s.acct)$("acct").value=s.acct;if(s.risk)$("risk").value=s.risk;if(s.lev)$("lev").value=s.lev}catch(e){}}
+function saveSet(){try{localStorage.setItem("masa_set",JSON.stringify({acct:$("acct").value,risk:$("risk").value,lev:$("lev").value}))}catch(e){}}
+const cfg=()=>({acct:Math.max(1,+$("acct").value||1000),risk:Math.min(10,Math.max(.1,+$("risk").value||1))/100,lev:+$("lev").value||10});
+
+/* ---------- göstergeler (backtest ile aynı mantık) ---------- */
+function ema(a,n){const k=2/(n+1);const o=[a[0]];for(let i=1;i<a.length;i++)o.push(a[i]*k+o[i-1]*(1-k));return o}
+function wilder(a,n){const k=1/n;const o=[a[0]];for(let i=1;i<a.length;i++)o.push(a[i]*k+o[i-1]*(1-k));return o}
+function rsi(c,n=14){const up=[0],dn=[0];for(let i=1;i<c.length;i++){const d=c[i]-c[i-1];up.push(Math.max(d,0));dn.push(Math.max(-d,0))}
+  const u=wilder(up,n),d=wilder(dn,n);return c.map((_,i)=>d[i]===0?100:100-100/(1+u[i]/d[i]))}
+function atr(h,l,c,n=14){const tr=h.map((_,i)=>i===0?h[i]-l[i]:Math.max(h[i]-l[i],Math.abs(h[i]-c[i-1]),Math.abs(l[i]-c[i-1])));return wilder(tr,n)}
+function feat(k){
+  const n=k.c.length,i=n-1;
+  const e200=ema(k.c,200),a=atr(k.h,k.l,k.c),r=rsi(k.c);
+  const ud=(()=>{const up=[0],dn=[0];for(let j=1;j<k.c.length;j++){const x=k.c[j]-k.c[j-1];up.push(Math.max(x,0));dn.push(Math.max(-x,0))}return[wilder(up,14).at(-1),wilder(dn,14).at(-1)]})();
+  const w=k.v.slice(-60),m=w.reduce((s,x)=>s+x,0)/60,sd=Math.sqrt(w.reduce((s,x)=>s+(x-m)**2,0)/59);
+  return {close:k.c[i],atr:a[i],ema200:e200[i],rsi:r[i],rsiU:ud[0],rsiD:ud[1],volZ:sd>0?(k.v[i]-m)/sd:0,
+    hh20:Math.max(...k.h.slice(-21,-1)),ll20:Math.min(...k.l.slice(-21,-1)),
+    rangeX:(k.h[i]-k.l[i])/a[i],ret6:k.c[i]/k.c[i-6]-1,atrPct:a[i]/k.c[i],t:k.t[i]};
+}
+
+/* ---------- ajanlar ---------- */
+function tarayici(f,side){
+  const base=f.volZ>=2&&f.rangeX>=1.3;
+  if(side==="LONG"&&base&&f.close>f.hh20)return{ajan:"Tarayıcı",oy:1,not:`20 mumluk zirve kırıldı, hacim z=${f.volZ.toFixed(1)}, mum ${f.rangeX.toFixed(1)}×ATR`};
+  if(side==="SHORT"&&base&&f.close<f.ll20)return{ajan:"Tarayıcı",oy:1,not:`20 mumluk dip kırıldı, hacim z=${f.volZ.toFixed(1)}, mum ${f.rangeX.toFixed(1)}×ATR`};
+  return{ajan:"Tarayıcı",oy:0,not:`${side==="LONG"?"long":"short"} kırılımı yok (hacim z=${f.volZ.toFixed(1)})`};
+}
+/* ---- Haber ajanı: RSS başlıkları (son 24 saat), anahtar kelime puanı. Geçmişte test EDİLMEDİ. ---- */
+const ALIAS={BTC:/\b(bitcoin|btc)\b/i,ETH:/\b(ethereum|ether|eth)\b/i,SOL:/\b(solana|sol)\b/i,BNB:/\b(bnb|binance coin|bnb chain)\b/i,
+  XRP:/\b(xrp|ripple)\b/i,ADA:/\b(cardano|ada)\b/i,DOGE:/\b(dogecoin|doge)\b/i,LINK:/\bchainlink\b/i,
+  AVAX:/\b(avalanche|avax)\b/i,LTC:/\b(litecoin|ltc)\b/i};
+const NEG=/\b(hack(ed|s)?|exploit(ed|s)?|stolen|drain(ed)?|lawsuit|sues?|sued|charges?|banned?|crackdown|delist(s|ed|ing)?|bankrupt\w*|collaps\w*|plunge[sd]?|crash\w*|liquidat\w*|outage|halt(s|ed)?|fraud|investigat\w*|probe|sell-?off|dump\w*|slump\w*|tumbl\w*|drops?|falls?|fell|slides?|warns?|rejects?|denied)\b/i;
+const POS=/\b(approv\w*|partnership|partners?|launch(es|ed)?|upgrade[sd]?|adopt\w*|lists?|listing|surge[sd]?|rall(y|ies|ied)|soar\w*|record high|inflows?|accumulat\w*|integrat\w*|mainnet|jumps?|gains?|climbs?|rises?|rose|breakout|bullish)\b/i;
+const FEEDS=["https://cointelegraph.com/rss","https://www.coindesk.com/arc/outboundfeeds/rss/","https://decrypt.co/feed","https://bitcoinmagazine.com/.rss/full/","https://cryptoslate.com/feed/"];
+const esc=s=>String(s).replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[m]));
+function headlineScore(t){return (POS.test(t)?1:0)-(NEG.test(t)?1:0)}
+function newsFor(c){
+  const items=(S.news||[]).filter(n=>ALIAS[c].test(n.title));
+  const net=items.reduce((s,n)=>s+headlineScore(n.title),0);
+  return{items,net};
+}
+function haber(c,sd){
+  if(!S.news)return{ajan:"Haber",oy:0,not:S.newsErr?"haber kaynağına ulaşılamadı (çekimser)":"haberler yükleniyor…"};
+  const {items,net}=newsFor(c);
+  const sc=net>=2?1:net<=-2?-1:0;
+  const top=items[0]?` · son: “${esc(items[0].title.slice(0,90))}”`:"";
+  const base=`24 saatte ${items.length} haber, net puan ${net>0?"+":""}${net}`;
+  if(!sd||sc===0)return{ajan:"Haber",oy:0,not:`${base}, belirgin yön yok${top}`};
+  const oy=sd==="LONG"?sc:-sc;
+  return{ajan:"Haber",oy,not:`${base}: ${sc>0?"olumlu":"olumsuz"} ${oy>0?"(sinyali destekliyor)":"(sinyale ters)"}${top}`};
+}
+function supheci(f,btcUp,side){
+  const s=[];
+  if(side==="LONG"){
+    if(f.close<f.ema200)s.push("fiyat EMA200 altında (ana trend aşağı)");
+    if(!btcUp)s.push("BTC EMA200 altında (piyasa zayıf)");
+    if(f.rsi>78)s.push(`RSI ${f.rsi.toFixed(0)} aşırı alım`);
+    if(f.ret6>.15)s.push(`1 günde %${(100*f.ret6).toFixed(0)} yükselmiş, kovalamak olur`);
+  }else{
+    if(f.close>f.ema200)s.push("fiyat EMA200 üstünde (ana trend yukarı)");
+    if(btcUp)s.push("BTC EMA200 üstünde (piyasa güçlü)");
+    if(f.rsi<22)s.push(`RSI ${f.rsi.toFixed(0)} aşırı satım, toparlanma riski`);
+    if(f.ret6<-.15)s.push(`1 günde %${(-100*f.ret6).toFixed(0)} düşmüş, kovalamak olur`);
+  }
+  if(f.atrPct>.06)s.push(`volatilite çok yüksek (ATR %${(100*f.atrPct).toFixed(1)})`);
+  return s.length?{ajan:"Şüpheci",oy:-s.length,not:s.join("; ")}:{ajan:"Şüpheci",oy:0,not:"ciddi itiraz yok"};
+}
+function side(f,btcUp,sd,c){
+  const t=tarayici(f,sd),h=haber(c,sd),s=supheci(f,btcUp,sd);
+  const itiraz=s.oy<0||h.oy<0;
+  return{sd,t,h,s,sig:t.oy>0,veto:t.oy>0&&itiraz,go:t.oy>0&&!itiraz};
+}
+function decide(f,btcUp,c){
+  const L=side(f,btcUp,"LONG",c),Sh=side(f,btcUp,"SHORT",c);
+  let karar="BEKLE",ana=null;
+  if(L.go){karar="LONG";ana=L}else if(Sh.go){karar="SHORT";ana=Sh}
+  else if(L.veto){karar="GEC";ana=L}else if(Sh.veto){karar="GEC";ana=Sh}
+  const yon=f.close<f.ema200?"aşağı":"yukarı";
+  let hk;
+  if(karar==="LONG")hk="Sinyal var, itiraz yok: LONG.";
+  else if(karar==="SHORT")hk="Sinyal var, itiraz yok: SHORT.";
+  else if(karar==="GEC")hk=`${ana.sd==="LONG"?"Long":"Short"} sinyali var ama ${ana.s.oy<0&&ana.h.oy<0?"Şüpheci ve Haber":ana.h.oy<0?"Haber":"Şüpheci"} itiraz etti: GEÇ (veto).`;
+  else hk=`Kırılım sinyali yok, BEKLE. Ana eğilim ${yon}.`;
+  const rap=ana?[ana.t,ana.h,ana.s]:[L.t,Sh.t.oy?Sh.t:{ajan:"Tarayıcı",oy:0,not:"short kırılımı da yok"},haber(c,null)];
+  rap.push({ajan:"Hakem",oy:0,not:hk});
+  return{karar,rap,sd:ana?ana.sd:null};
+}
+
+/* ---------- marjin planı ---------- */
+function plan(f,sd,live,c){
+  const s=sd==="LONG"?1:-1,entry=f.close;
+  const stop=entry-s*2*f.atr,hedef=entry+s*3*f.atr;
+  const dist=Math.abs(entry-stop)/entry;
+  const riskUsd=c.acct*c.risk;
+  let notional=riskUsd/dist,cap=false;
+  if(notional>c.acct*c.lev){notional=c.acct*c.lev;cap=true}
+  const margin=notional/c.lev;
+  const liq=s===1?entry*(1-1/c.lev+MMR):entry*(1+1/c.lev-MMR);
+  const liqBeforeStop=s===1?liq>=stop:liq<=stop;
+  const maxLev=Math.max(1,Math.floor(1/(1.25*dist+MMR)));
+  const pnl=live?s*(live/entry-1)*notional:null;
+  return{entry,stop,hedef,dist,riskUsd,notional,margin,liq,liqBeforeStop,maxLev,cap,pnl,s,live};
+}
+
+/* ---------- veri ---------- */
+async function gate(c){
+  const r=await fetch(`https://api.gateio.ws/api/v4/spot/candlesticks?currency_pair=${c}_USDT&interval=4h&limit=1000`);
+  if(!r.ok)throw new Error("Gate "+r.status);
+  const a=(await r.json()).filter(x=>x[7]==="true");
+  return{t:a.map(x=>+x[0]*1000),c:a.map(x=>+x[2]),h:a.map(x=>+x[3]),l:a.map(x=>+x[4]),v:a.map(x=>+x[6])};
+}
+async function tv(){
+  const r=await fetch("https://scanner.tradingview.com/crypto/scan",{method:"POST",
+    body:JSON.stringify({symbols:{tickers:COINS.map(c=>`BINANCE:${c}USDT`)},columns:["close","change","RSI|240","EMA200|240"]})});
+  if(!r.ok)throw new Error("HTTP "+r.status);
+  const j=await r.json(),o={};
+  j.data.forEach(d=>{o[d.s.split(":")[1].replace("USDT","")]={close:d.d[0],chg:d.d[1],rsi:d.d[2],ema:d.d[3]}});
+  return o;
+}
+async function slowLoop(){            // mumlar: ~60 sn
+  const errs=[];
+  await Promise.all(COINS.map(async c=>{try{const k=await gate(c);S.coins[c]={k,f:feat(k)}}catch(e){errs.push(c)}}));
+  S.candErr=errs;
+  if(S.coins.BTC){const k=S.coins.BTC.k,e=ema(k.c,200);S.btcUp=k.c.at(-1)>e.at(-1)}
+  recompute();
+}
+function recompute(){
+  COINS.forEach(c=>{if(S.coins[c]){const d=decide(S.coins[c].f,S.btcUp,c);S.coins[c].d=d;
+    const prev=S.prev[c];if(prev!==undefined&&prev!==d.karar&&(d.karar==="LONG"||d.karar==="SHORT"))announce(c,d.karar);S.prev[c]=d.karar;}});
+  render();
+}
+
+/* ---------- Senaryolar ---------- */
+function rsiLevelPrice(f,t,up){            // bir sonraki mum kapanışında RSI = t olması için gereken fiyat
+  const R=t/(100-t);
+  if(up){const dlt=R*13*f.rsiD-13*f.rsiU;return dlt>0?f.close+dlt:null}
+  const dlt=13*f.rsiD-13*f.rsiU/R;return dlt<0?f.close+dlt:null;
+}
+function renderScen(){
+  const rows=COINS.filter(c=>S.coins[c]).map(c=>{
+    const f=S.coins[c].f,t=S.tv&&S.tv[c],live=t?t.close:f.close;
+    const up=rsiLevelPrice(f,78,true),dn=rsiLevelPrice(f,22,false);
+    const dEma=100*(live/f.ema200-1);
+    return `<tr><td><b>${c}</b></td>
+      <td>${fx(live)}</td>
+      <td>${f.rsi.toFixed(0)}</td>
+      <td>${fx(f.ema200)} <span class="mini">(${pct(dEma)}) ${dEma<0?"→ üstüne çıkarsa long itirazı kalkar":"→ altına inerse long itirazı doğar"}</span></td>
+      <td>${up?fx(up)+` <span class="mini">(${pct(100*(up/live-1))})</span>`:"zaten üstünde"}</td>
+      <td>${dn?fx(dn)+` <span class="mini">(${pct(100*(dn/live-1))})</span>`:"zaten altında"}</td>
+      <td>${fx(f.hh20)} <span class="mini">(${pct(100*(f.hh20/live-1))})</span></td>
+      <td>${fx(f.ll20)} <span class="mini">(${pct(100*(f.ll20/live-1))})</span></td></tr>`}).join("");
+  $("sctab").innerHTML=`<tr><th>Coin</th><th>Fiyat</th><th>RSI</th><th>EMA200 (mesafe)</th><th>RSI 78 için kapanış<br><span class="mini">long'a itiraz başlar</span></th><th>RSI 22 için kapanış<br><span class="mini">short'a itiraz başlar</span></th><th>Long tetik (kapanış üstü)</th><th>Short tetik (kapanış altı)</th></tr>${rows}`;
+}
+async function newsLoop(){            // haberler: ~5 dk
+  const res=await Promise.allSettled(FEEDS.map(u=>fetch("https://api.rss2json.com/v1/api.json?rss_url="+encodeURIComponent(u)).then(r=>r.json())));
+  const now=Date.now(),seen=new Set(),all=[];
+  res.forEach(r=>{if(r.status!=="fulfilled"||r.value.status!=="ok")return;
+    (r.value.items||[]).forEach(n=>{const ts=Date.parse((n.pubDate||"").replace(" ","T")+"Z");
+      if(!n.title||!ts||now-ts>24*3600e3||seen.has(n.title))return;seen.add(n.title);all.push({title:n.title,ts})})});
+  const ok=res.filter(r=>r.status==="fulfilled"&&r.value.status==="ok").length;
+  if(ok===0){S.newsErr=true;if(!S.news)S.news=null}else{S.newsErr=false;S.news=all.sort((a,b)=>b.ts-a.ts);S.newsInfo=`${all.length} haber / ${ok} kaynak`}
+  recompute();
+}
+async function fastLoop(){            // fiyat/RSI: ~10 sn
+  try{S.tv=await tv();S.tvErr=""}catch(e){S.tvErr="TradingView alınamadı ("+e.message+")"}
+  render();
+}
+let toastT=null;
+function announce(c,k){
+  const a=$("alert");a.style.display="block";a.textContent=`🔔 Yeni sinyal: ${c} ${k} (${new Date().toLocaleTimeString("tr-TR")})`;
+  clearTimeout(toastT);toastT=setTimeout(()=>a.style.display="none",600000);
+}
+
+/* ---------- arayüz ---------- */
+const fx=x=>x>=100?x.toLocaleString("tr-TR",{maximumFractionDigits:1}):x>=1?x.toFixed(3):x.toPrecision(3);
+const pct=x=>(x>=0?"+":"")+x.toFixed(1)+"%";
+const usd=x=>x.toLocaleString("tr-TR",{maximumFractionDigits:0})+" $";
+
+function card(c,cf){
+  const f=cf.f,d=cf.d,t=S.tv&&S.tv[c];
+  const live=t?t.close:f.close;
+  const msgs=d.rap.map(r=>`<div class="msg"><div class="av">${AV[r.ajan]}</div><div class="bub ${r.oy>0?"p":r.oy<0?"n":""}"><em>${r.ajan}</em>${r.not}</div></div>`).join("");
+  const cn=cfg();
+  let box="";
+  if(d.karar==="LONG"||d.karar==="SHORT"){
+    const p=plan(f,d.karar,live,cn);
+    const levMsg=p.liqBeforeStop?`<span class="bad">Tasfiye stoptan ÖNCE gelir. En çok ${p.maxLev}x kullan.</span>`
+      :cn.lev>p.maxLev?`<span class="warn">Tasfiye stopa yakın. Güvenli sınır ${p.maxLev}x.</span>`:`<span class="good">Tasfiye stoptan uzak (güvenli sınır ${p.maxLev}x).</span>`;
+    box=`<div class="plan">
+      <div class="full"><span>Yön</span><b>${d.karar}</b></div>
+      <div><span>Giriş</span><b>${fx(p.entry)}</b></div><div><span>Stop (2 ATR)</span><b>${fx(p.stop)}</b></div>
+      <div><span>Hedef (3 ATR)</span><b>${fx(p.hedef)}</b></div><div><span>Stop mesafesi</span><b>%${(100*p.dist).toFixed(1)}</b></div>
+      <div><span>Risk</span><b>${usd(p.riskUsd)}</b></div><div><span>Pozisyon</span><b>${usd(p.notional)}</b></div>
+      <div><span>Teminat (${cn.lev}x)</span><b>${usd(p.margin)}</b></div><div><span>Tasfiye</span><b>${fx(p.liq)}</b></div>
+      <div class="full">${levMsg}${p.cap?' <span class="warn">Hesap bu riski taşımıyor, boyut kaldıraç sınırına çekildi.</span>':""}</div>
+      <div class="full"><span>Canlı K/Z (giriş kapanış fiyatı varsayımıyla)</span><b class="${p.pnl>=0?"good":"bad"}">${p.pnl>=0?"+":""}${p.pnl.toFixed(1)} $</b></div>
+    </div>`;
+  }else{
+    const atrP=f.atrPct*100,liqD=100/cn.lev-100*MMR;
+    box=`<div class="mini">${cn.lev}x kaldıraçta tasfiye mesafesi <b>%${liqD.toFixed(1)}</b> · 4s ATR %${atrP.toFixed(1)} (tasfiye ≈ ${(liqD/atrP).toFixed(1)} ATR) · stoplu işlem için güvenli sınır ≈ ${Math.max(1,Math.floor(1/(1.25*2*f.atrPct+MMR)))}x</div>`;
+  }
+  return `<div class="card ${d.karar}">
+    <div class="row"><span class="sym">${c}</span><span class="price">${fx(live)}</span>
+      <span class="badge ${d.karar}">${d.karar==="GEC"?"GEÇ":d.karar}</span></div>
+    <div class="kv">
+      <div><small>RSI 4s</small><b>${(t?t.rsi:f.rsi).toFixed(0)}</b></div>
+      <div><small>EMA200 fark</small><b>${pct(100*(live/f.ema200-1))}</b></div>
+      <div><small>Hacim z</small><b>${f.volZ.toFixed(1)}</b></div>
+      <div><small>Günlük</small><b>${t?pct(t.chg):"–"}</b></div>
+    </div>
+    <div class="chat">${msgs}</div>${box}
+    <a class="tv" target="_blank" rel="noopener" href="https://www.tradingview.com/chart/?symbol=BINANCE:${c}USDT&interval=240">TradingView'de aç ↗</a>
+  </div>`;
+}
+function render(){
+  const ids=COINS.filter(c=>S.coins[c]&&S.coins[c].d);
+  const cnt={LONG:0,SHORT:0,GEC:0,BEKLE:0};
+  $("grid").innerHTML=ids.map(c=>{cnt[S.coins[c].d.karar]++;return card(c,S.coins[c])}).join("")
+    ||'<p class="err">Mum verisi henüz gelmedi. İnternet bağlantısını kontrol edin.</p>';
+  $("rdot").style.background=S.btcUp?"var(--al)":"var(--gec)";
+  $("regime").textContent=S.btcUp?"Piyasa rejimi: BTC EMA200 üzerinde (yukarı). Long'lara itiraz azalır, short'lara artar."
+    :"Piyasa rejimi: BTC EMA200 altında (zayıf). Short'lara itiraz azalır, long'lara artar.";
+  $("sum").innerHTML=`<span class="chip al">LONG ${cnt.LONG}</span><span class="chip sh">SHORT ${cnt.SHORT}</span><span class="chip bek">BEKLE ${cnt.BEKLE}</span><span class="chip gec">GEÇ ${cnt.GEC}</span>`;
+  const b=S.coins.BTC;
+  $("stamp").textContent=(b?"Son kapanmış 4s mum: "+new Date(b.f.t+4*3600e3).toLocaleString("tr-TR")+" · ":"")+
+    "Fiyat güncelleme: "+new Date().toLocaleTimeString("tr-TR")+(S.tvErr?" · "+S.tvErr:"")+(S.candErr.length?" · Mum hatası: "+S.candErr.join(", "):"");
+  const live=!S.tvErr;
+  $("live").className="live"+(live?"":" off");$("livet").textContent=live?"Canlı (10 sn)":"Bağlantı sorunu";
+  const n=cnt.LONG+cnt.SHORT;document.title=(n?`(${n}) `:"")+"Analiz Masası";
+  renderScen();
+}
+
+["acct","risk","lev"].forEach(i=>$(i).addEventListener("input",()=>{saveSet();render()}));
+$("go").onclick=async()=>{$("go").disabled=true;await Promise.all([slowLoop(),fastLoop()]);$("go").disabled=false};
+loadSet();
+let busyS=false,busyF=false;
+const tickS=async()=>{if(busyS)return;busyS=true;try{await slowLoop()}finally{busyS=false}};
+const tickF=async()=>{if(busyF)return;busyF=true;try{await fastLoop()}finally{busyF=false}};
+let busyN=false;
+const tickN=async()=>{if(busyN)return;busyN=true;try{await newsLoop()}finally{busyN=false}};
+tickS();tickF();tickN();
+setInterval(tickS,60000);setInterval(tickF,10000);setInterval(tickN,300000);
+</script>
+</body>
+</html>
