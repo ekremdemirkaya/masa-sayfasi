@@ -115,6 +115,12 @@ footer{color:var(--mut);font-size:12.5px;padding:10px 0 40px}
     <p class="mini" style="margin-top:10px"><b>Kurallar:</b> LONG için fiyat EMA200 altındaysa, BTC EMA200 altındaysa, RSI 78 üstündeyse, 1 günde %15+ yükselmişse veya ATR %6 üstündeyse Şüpheci itiraz eder. SHORT için fiyat EMA200 üstündeyse, BTC EMA200 üstündeyse, RSI 22 altındaysa, 1 günde %15+ düşmüşse itiraz eder. Sinyal için ayrıca 20 mumluk zirve/dip kırılımı, hacim z ≥ 2 ve mumun ≥ 1,3 ATR olması gerekir. Haber net puanı −2 veya altıysa long'a, +2 veya üstüyse short'a itiraz eder.</p>
   </section>
 
+  <section id="gunlukrapor">
+    <h2>Günlük işlem raporu</h2>
+    <p class="mini" style="margin:0 0 10px">Masa son 7 günde hangi sinyalleri verdi ve bu işlemler kâr mı zarar mı etti. Sanal hesap: yukarıdaki hesap, risk ve kaldıraç değerleriyle. Gerçek işleminiz değil, "masa bu sinyalleri verseydi ve ona uysaydınız" hesabı. Haber bu hesaba dahil değil.</p>
+    <div id="gunluk"></div>
+  </section>
+
   <footer>Veri: TradingView tarayıcı servisi (fiyat, RSI, EMA200; ~10 sn) + Gate.io 4s mumları (hacim ve kırılım; ~60 sn) + Cointelegraph, CoinDesk, Decrypt, Bitcoin Magazine, CryptoSlate başlıkları (rss2json üzerinden, ~5 dk). Haber puanı basit anahtar kelime sayımıdır (hack, dava, yasak, onay, ortaklık vb.), geçmişte test edilmedi ve yalnızca sinyale TERS ise veto eder; tek başına sinyal üretmez. Sinyaller kapanmış 4 saatlik mumdan hesaplanır, yani asıl karar en fazla 4 saatte bir değişir; sık yenileme canlı fiyatı ve stop/tasfiye mesafesini güncel tutar, sinyal kalitesini artırmaz. Tarayıcı bildirimi yalnızca sayfa açıkken veya telefonda arka plandayken çalışır; sayfa tamamen kapalıyken sinyal bildirimi Telegram bot mesajıyla gelir.</footer>
 </main>
 
@@ -168,7 +174,9 @@ function newsFor(c){
   const net=items.reduce((s,n)=>s+headlineScore(n.title),0);
   return{items,net};
 }
+let HIST=false;
 function haber(c,sd){
+  if(HIST)return{ajan:"Haber",oy:0,not:"geçmiş hesabında haber kullanılmaz"};
   if(!S.news)return{ajan:"Haber",oy:0,not:S.newsErr?"haber kaynağına ulaşılamadı (çekimser)":"haberler yükleniyor…"};
   const {items,net}=newsFor(c);
   const sc=net>=2?1:net<=-2?-1:0;
@@ -208,7 +216,7 @@ function decide(f,btcUp,c){
   let hk;
   if(karar==="LONG")hk="Sinyal var, itiraz yok: LONG.";
   else if(karar==="SHORT")hk="Sinyal var, itiraz yok: SHORT.";
-  else if(karar==="GEC")hk=`${ana.sd==="LONG"?"Long":"Short"} sinyali var ama ${ana.s.oy<0&&ana.h.oy<0?"Şüpheci ve Haber":ana.h.oy<0?"Haber":"Şüpheci"} itiraz etti: GEÇ (veto).`;
+  else if(karar==="GEC")hk=`${ana.sd==="LONG"?"Long":"Short"} sinyali var ama ${ana.s.oy<0&&ana.h.oy<0?"Şüpheci ve Haber":ana.h.oy<0?"Haber":"Şüpheci"} karşı çıktı, bu yüzden girmiyorum: GEÇ.`;
   else hk=`Kırılım sinyali yok, BEKLE. Ana eğilim ${yon}.`;
   const rap=ana?[ana.t,ana.h,ana.s]:[L.t,Sh.t.oy?Sh.t:{ajan:"Tarayıcı",oy:0,not:"short kırılımı da yok"},haber(c,null)];
   rap.push({ajan:"Hakem",oy:0,not:hk});
@@ -251,7 +259,7 @@ async function slowLoop(){            // mumlar: ~60 sn
   await Promise.all(COINS.map(async c=>{try{const k=await gate(c);S.coins[c]={k,f:feat(k)}}catch(e){errs.push(c)}}));
   S.candErr=errs;
   if(S.coins.BTC){const k=S.coins.BTC.k,e=ema(k.c,200);S.btcUp=k.c.at(-1)>e.at(-1)}
-  recompute();
+  recompute();renderHist();
 }
 /* ---------- Tarayıcı/telefon bildirimi (sayfa açıkken veya arka plandayken) ---------- */
 let nfMem=null;const nfSentMem=[];   // depolama kapalıysa bellekte tut
@@ -310,6 +318,70 @@ function renderScen(){
       <td>${fx(f.hh20)} <span class="mini">(${pct(100*(f.hh20/live-1))})</span></td>
       <td>${fx(f.ll20)} <span class="mini">(${pct(100*(f.ll20/live-1))})</span></td></tr>`}).join("");
   $("sctab").innerHTML=`<tr><th>Coin</th><th>Fiyat</th><th>RSI</th><th>EMA200 (mesafe)</th><th>RSI 78 için kapanış<br><span class="mini">long'a itiraz başlar</span></th><th>RSI 22 için kapanış<br><span class="mini">short'a itiraz başlar</span></th><th>Long tetik (kapanış üstü)</th><th>Short tetik (kapanış altı)</th></tr>${rows}`;
+}
+/* ---------- Günlük işlem raporu (sanal) ---------- */
+const COST_REAL=0.0010,FUND_BAR=0.00005,STOP_SLIP=0.0015,HOLD=7*864e5,H4=4*3600e3;
+async function gate15(c){
+  const r=await fetch(`https://api.gateio.ws/api/v4/spot/candlesticks?currency_pair=${c}_USDT&interval=15m&limit=1000`);
+  if(!r.ok)throw new Error("Gate15 "+r.status);
+  return(await r.json()).filter(x=>x[7]==="true").map(x=>({t:+x[0]*1000,o:+x[5],h:+x[3],l:+x[4],c:+x[2]}));
+}
+async function histLoop(){
+  const res={};await Promise.all(COINS.map(async c=>{try{res[c]=await gate15(c)}catch(e){}}));
+  S.h15=res;renderHist();
+}
+function simTrade(c,sd,f,entryT,bars,cn){
+  const s=sd==="LONG"?1:-1,pl=plan(f,sd,null,cn),notional=pl.notional;
+  const bs=bars.filter(b=>b.t>=entryT);
+  if(!bs.length)return{c,sd,entryT,durum:"bekliyor",pnl:0,notional};
+  const o=bs[0].o;let stop=o-s*2*f.atr,hedef=o+s*3*f.atr;
+  const liq=o*(1-s*(1/cn.lev-MMR)),liqFirst=s===1?liq>stop:liq<stop;if(liqFirst)stop=liq;
+  for(const b of bs){
+    const hitS=s===1?b.l<=stop:b.h>=stop,hitH=s===1?b.h>=hedef:b.l<=hedef;
+    let tur=null,px=null;
+    if(hitS){tur=liqFirst?"TASFİYE":"STOP";px=stop*(1-s*STOP_SLIP)}
+    else if(hitH){tur="HEDEF";px=hedef}
+    else if(b.t-entryT>=HOLD){tur="SÜRE";px=b.c}
+    if(tur){const ret=s*(px/o-1),held=Math.max(1,Math.floor((b.t-entryT)/H4)+1);
+      return{c,sd,entryT,exitT:b.t,entry:o,exit:px,tur,ret,notional,pnl:notional*(ret-COST_REAL)-notional*FUND_BAR*held}}
+  }
+  const last=bs.at(-1).c,ret=s*(last/o-1);
+  return{c,sd,entryT,entry:o,exit:last,tur:"AÇIK",ret,notional,pnl:notional*(ret-COST_REAL)};
+}
+function renderHist(){
+  const box=$("gunluk");if(!box)return;
+  if(!S.h15||!S.coins.BTC){box.innerHTML='<p class="mini">Veri yükleniyor…</p>';return}
+  const cn=cfg(),trades=[];
+  const bk=S.coins.BTC.k,be=ema(bk.c,200),up=new Map(bk.t.map((t,i)=>[t,bk.c[i]>be[i]]));
+  HIST=true;
+  try{COINS.forEach(c=>{
+    const cf=S.coins[c];if(!cf||!S.h15[c])return;
+    const k=cf.k,n=k.c.length;let busy=0;
+    for(let i=Math.max(300,n-42);i<n;i++){
+      const u=up.get(k.t[i]);if(u===undefined)continue;
+      const f=feat({t:k.t.slice(0,i+1),c:k.c.slice(0,i+1),h:k.h.slice(0,i+1),l:k.l.slice(0,i+1),v:k.v.slice(0,i+1)});
+      const d=decide(f,u,c);
+      if(d.karar!=="LONG"&&d.karar!=="SHORT")continue;
+      const entryT=k.t[i]+H4;if(entryT<busy)continue;
+      const tr=simTrade(c,d.karar,f,entryT,S.h15[c],cn);trades.push(tr);busy=tr.exitT||Infinity;
+    }})}finally{HIST=false}
+  trades.sort((a,b)=>a.entryT-b.entryT);
+  const days=new Map();
+  trades.forEach(t=>{const k=new Date(t.entryT).toLocaleDateString("tr-TR",{day:"numeric",month:"long",weekday:"long"});if(!days.has(k))days.set(k,[]);days.get(k).push(t)});
+  if(!trades.length){box.innerHTML='<p class="mini">Son 7 günde masa hiç sinyal vermedi. İşlem yok, kâr da zarar da yok.</p>';return}
+  const money=x=>`<b class="${x>=0?"good":"bad"}">${x>=0?"+":""}${x.toFixed(2)} $</b>`;
+  const tot=trades.reduce((s,t)=>s+t.pnl,0),win=trades.filter(t=>t.pnl>0).length;
+  let html=`<div class="banner" style="margin:0 0 12px"><span>Son 7 gün: <b>${trades.length}</b> işlem, <b>${win}</b> kârlı, <b>${trades.length-win}</b> zararlı</span><span style="margin-left:auto">Toplam ${money(tot)}</span></div>`;
+  [...days.entries()].reverse().forEach(([day,list])=>{
+    const dp=list.reduce((s,t)=>s+t.pnl,0);
+    const rows=list.map(t=>{
+      const saat=new Date(t.entryT).toLocaleTimeString("tr-TR",{hour:"2-digit",minute:"2-digit"});
+      const sonuc=t.durum==="bekliyor"?"giriş bekliyor":t.tur==="HEDEF"?"✅ Kâr aldı":t.tur==="STOP"?"❌ Stop oldu":t.tur==="TASFİYE"?"💥 Tasfiye":t.tur==="SÜRE"?"⏱ 7 gün doldu":"⏳ Hâlâ açık";
+      return `<tr><td>${saat}</td><td><b>${t.c}</b> ${t.sd}</td><td>${t.entry?fx(t.entry):"–"}</td><td>${t.exit?fx(t.exit):"–"}</td><td>${sonuc}</td><td>${t.durum==="bekliyor"?"–":pct(100*t.ret)}</td><td>${t.durum==="bekliyor"?"–":money(t.pnl)}</td></tr>`}).join("");
+    html+=`<div style="margin-bottom:14px"><div class="row" style="margin-bottom:6px"><b>${day}</b><span style="margin-left:auto">${list.length} işlem · ${money(dp)}</span></div>
+      <div class="tablewrap"><table><tr><th>Saat</th><th>İşlem</th><th>Giriş</th><th>Çıkış / şu an</th><th>Durum</th><th>Fiyat farkı</th><th>Kâr / zarar</th></tr>${rows}</table></div></div>`;
+  });
+  box.innerHTML=html;
 }
 async function newsLoop(){            // haberler: ~5 dk
   const res=await Promise.allSettled(FEEDS.map(u=>fetch("https://api.rss2json.com/v1/api.json?rss_url="+encodeURIComponent(u)).then(r=>r.json())));
@@ -378,8 +450,8 @@ function render(){
   $("grid").innerHTML=ids.map(c=>{cnt[S.coins[c].d.karar]++;return card(c,S.coins[c])}).join("")
     ||'<p class="err">Mum verisi henüz gelmedi. İnternet bağlantısını kontrol edin.</p>';
   $("rdot").style.background=S.btcUp?"var(--al)":"var(--gec)";
-  $("regime").textContent=S.btcUp?"Piyasa rejimi: BTC EMA200 üzerinde (yukarı). Long'lara itiraz azalır, short'lara artar."
-    :"Piyasa rejimi: BTC EMA200 altında (zayıf). Short'lara itiraz azalır, long'lara artar.";
+  $("regime").textContent=S.btcUp?"Piyasa yükseliş eğiliminde (BTC EMA200 üstünde): LONG sinyali çıkma ihtimali daha yüksek, SHORT daha düşük."
+    :"Piyasa düşüş eğiliminde (BTC EMA200 altında): SHORT sinyali çıkma ihtimali daha yüksek, LONG daha düşük.";
   $("sum").innerHTML=`<span class="chip al">LONG ${cnt.LONG}</span><span class="chip sh">SHORT ${cnt.SHORT}</span><span class="chip bek">BEKLE ${cnt.BEKLE}</span><span class="chip gec">GEÇ ${cnt.GEC}</span>`;
   const b=S.coins.BTC;
   $("stamp").textContent=(b?"Son kapanmış 4s mum: "+new Date(b.f.t+4*3600e3).toLocaleString("tr-TR")+" · ":"")+
@@ -390,7 +462,7 @@ function render(){
   renderScen();
 }
 
-["acct","risk","lev"].forEach(i=>$(i).addEventListener("input",()=>{saveSet();render()}));
+["acct","risk","lev"].forEach(i=>$(i).addEventListener("input",()=>{saveSet();render();renderHist()}));
 $("bell").onclick=nfToggle;nfRender();
 try{if("serviceWorker" in navigator&&location.protocol.startsWith("http"))navigator.serviceWorker.register("sw.js").catch(()=>{})}catch(e){}
 $("go").onclick=async()=>{$("go").disabled=true;await Promise.all([slowLoop(),fastLoop()]);$("go").disabled=false};
@@ -400,8 +472,10 @@ const tickS=async()=>{if(busyS)return;busyS=true;try{await slowLoop()}finally{bu
 const tickF=async()=>{if(busyF)return;busyF=true;try{await fastLoop()}finally{busyF=false}};
 let busyN=false;
 const tickN=async()=>{if(busyN)return;busyN=true;try{await newsLoop()}finally{busyN=false}};
-tickS();tickF();tickN();
-setInterval(tickS,60000);setInterval(tickF,10000);setInterval(tickN,300000);
+let busyH=false;
+const tickH=async()=>{if(busyH)return;busyH=true;try{await histLoop()}finally{busyH=false}};
+tickS();tickF();tickN();tickH();
+setInterval(tickS,60000);setInterval(tickF,10000);setInterval(tickN,300000);setInterval(tickH,300000);
 </script>
 </body>
 </html>
