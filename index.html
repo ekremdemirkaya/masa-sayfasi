@@ -78,6 +78,7 @@ footer{color:var(--mut);font-size:12.5px;padding:10px 0 40px}
     <div><h1>Analiz Masası <span class="sub">· marjin (long/short)</span></h1><div class="sub" id="stamp">Yükleniyor…</div></div>
     <div class="sp"></div>
     <span class="live" id="live"><i></i><span id="livet">Canlı</span></span>
+    <button id="bell" type="button" style="background:var(--panel2);color:var(--tx);border:1px solid var(--line)">🔔 Bildirim: kapalı</button>
     <button id="go">Şimdi yenile</button>
   </div>
   <div class="ctrl">
@@ -114,7 +115,7 @@ footer{color:var(--mut);font-size:12.5px;padding:10px 0 40px}
     <p class="mini" style="margin-top:10px"><b>Kurallar:</b> LONG için fiyat EMA200 altındaysa, BTC EMA200 altındaysa, RSI 78 üstündeyse, 1 günde %15+ yükselmişse veya ATR %6 üstündeyse Şüpheci itiraz eder. SHORT için fiyat EMA200 üstündeyse, BTC EMA200 üstündeyse, RSI 22 altındaysa, 1 günde %15+ düşmüşse itiraz eder. Sinyal için ayrıca 20 mumluk zirve/dip kırılımı, hacim z ≥ 2 ve mumun ≥ 1,3 ATR olması gerekir. Haber net puanı −2 veya altıysa long'a, +2 veya üstüyse short'a itiraz eder.</p>
   </section>
 
-  <footer>Veri: TradingView tarayıcı servisi (fiyat, RSI, EMA200; ~10 sn) + Gate.io 4s mumları (hacim ve kırılım; ~60 sn) + Cointelegraph, CoinDesk, Decrypt, Bitcoin Magazine, CryptoSlate başlıkları (rss2json üzerinden, ~5 dk). Haber puanı basit anahtar kelime sayımıdır (hack, dava, yasak, onay, ortaklık vb.), geçmişte test edilmedi ve yalnızca sinyale TERS ise veto eder; tek başına sinyal üretmez. Sinyaller kapanmış 4 saatlik mumdan hesaplanır, yani asıl karar en fazla 4 saatte bir değişir; sık yenileme canlı fiyatı ve stop/tasfiye mesafesini güncel tutar, sinyal kalitesini artırmaz. Haber ajanı henüz veri almıyor.</footer>
+  <footer>Veri: TradingView tarayıcı servisi (fiyat, RSI, EMA200; ~10 sn) + Gate.io 4s mumları (hacim ve kırılım; ~60 sn) + Cointelegraph, CoinDesk, Decrypt, Bitcoin Magazine, CryptoSlate başlıkları (rss2json üzerinden, ~5 dk). Haber puanı basit anahtar kelime sayımıdır (hack, dava, yasak, onay, ortaklık vb.), geçmişte test edilmedi ve yalnızca sinyale TERS ise veto eder; tek başına sinyal üretmez. Sinyaller kapanmış 4 saatlik mumdan hesaplanır, yani asıl karar en fazla 4 saatte bir değişir; sık yenileme canlı fiyatı ve stop/tasfiye mesafesini güncel tutar, sinyal kalitesini artırmaz. Tarayıcı bildirimi yalnızca sayfa açıkken veya telefonda arka plandayken çalışır; sayfa tamamen kapalıyken sinyal bildirimi Telegram bot mesajıyla gelir.</footer>
 </main>
 
 <script>
@@ -252,9 +253,40 @@ async function slowLoop(){            // mumlar: ~60 sn
   if(S.coins.BTC){const k=S.coins.BTC.k,e=ema(k.c,200);S.btcUp=k.c.at(-1)>e.at(-1)}
   recompute();
 }
+/* ---------- Tarayıcı/telefon bildirimi (sayfa açıkken veya arka plandayken) ---------- */
+let nfMem=null;const nfSentMem=[];   // depolama kapalıysa bellekte tut
+const nfOn=()=>{let v=nfMem;if(v===null){try{v=localStorage.getItem("masa_nf")==="1"}catch(e){v=false}}return v&&"Notification" in window&&Notification.permission==="granted"};
+function nfSetOn(v){nfMem=v;try{localStorage.setItem("masa_nf",v?"1":"0")}catch(e){}}
+function nfSentGet(){let a=[];try{a=JSON.parse(localStorage.getItem("masa_nfsent")||"[]")}catch(e){}return a.concat(nfSentMem)}
+function nfSentAdd(k){nfSentMem.push(k);try{const a=JSON.parse(localStorage.getItem("masa_nfsent")||"[]");a.push(k);localStorage.setItem("masa_nfsent",JSON.stringify(a.slice(-100)))}catch(e){}}
+function nfRender(){const b=$("bell");if(!b)return;
+  if(!("Notification" in window)){b.textContent="🔔 Bu tarayıcı desteklemiyor";b.disabled=true;return}
+  b.textContent=nfOn()?"🔔 Bildirim: açık":(Notification.permission==="denied"?"🔔 İzin engelli (tarayıcı ayarından aç)":"🔔 Bildirim: kapalı")}
+async function nfShow(title,body,tag){
+  try{const reg=navigator.serviceWorker&&await navigator.serviceWorker.getRegistration();
+    if(reg){await reg.showNotification(title,{body,tag,renotify:true,vibrate:[200,100,200]});return true}}catch(e){}
+  try{new Notification(title,{body,tag});return true}catch(e){return false}
+}
+async function nfToggle(){
+  if(!("Notification" in window))return;
+  if(nfOn()){nfSetOn(false);nfRender();return}
+  let p=Notification.permission;
+  if(p!=="granted"){try{p=await Notification.requestPermission()}catch(e){p="denied"}}
+  if(p==="granted"){nfSetOn(true);nfRender();nfShow("Analiz Masası","Bildirimler açık. LONG/SHORT sinyali çıkınca haber verilecek.","nf-test")}
+  else nfRender();
+}
+function nfSignal(c,d,f){
+  if(!nfOn())return;
+  const key=`${c}|${d.karar}|${f.t}`;
+  if(nfSentGet().includes(key))return;
+  nfSentAdd(key);
+  const cn=cfg(),p=plan(f,d.karar,null,cn);
+  nfShow(`${c} ${d.karar} sinyali`,`Giriş ${fx(p.entry)} · Stop ${fx(p.stop)} · Hedef ${fx(p.hedef)} · ${cn.lev}x tasfiye ${fx(p.liq)}${p.liqBeforeStop?" (stoptan önce!)":""}`,key);
+}
 function recompute(){
   COINS.forEach(c=>{if(S.coins[c]){const d=decide(S.coins[c].f,S.btcUp,c);S.coins[c].d=d;
-    const prev=S.prev[c];if(prev!==undefined&&prev!==d.karar&&(d.karar==="LONG"||d.karar==="SHORT"))announce(c,d.karar);S.prev[c]=d.karar;}});
+    const prev=S.prev[c];if(prev!==undefined&&prev!==d.karar&&(d.karar==="LONG"||d.karar==="SHORT"))announce(c,d.karar);S.prev[c]=d.karar;
+    if(d.karar==="LONG"||d.karar==="SHORT")nfSignal(c,d,S.coins[c].f)}});
   render();
 }
 
@@ -359,6 +391,8 @@ function render(){
 }
 
 ["acct","risk","lev"].forEach(i=>$(i).addEventListener("input",()=>{saveSet();render()}));
+$("bell").onclick=nfToggle;nfRender();
+try{if("serviceWorker" in navigator&&location.protocol.startsWith("http"))navigator.serviceWorker.register("sw.js").catch(()=>{})}catch(e){}
 $("go").onclick=async()=>{$("go").disabled=true;await Promise.all([slowLoop(),fastLoop()]);$("go").disabled=false};
 loadSet();
 let busyS=false,busyF=false;
